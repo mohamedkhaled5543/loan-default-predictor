@@ -1,6 +1,7 @@
 """
-Loan Risk Intelligence — Loan Default Prediction Dashboard
-Matches the exact preprocessing pipeline used in loan_decision_tree_classifier.ipynb
+Loan Risk Intelligence — Neon Edition
+Same preprocessing pipeline as loan_decision_tree_classifier.ipynb.
+Only the UI/UX layer has been rebuilt: dark neon theme + richer Plotly visuals.
 """
 
 import os
@@ -15,108 +16,120 @@ from scipy.sparse import hstack
 # ----------------------------------------------------------------------------
 # CONFIG — must match the training notebook exactly
 # ----------------------------------------------------------------------------
-MODEL_PATH = "best_decision_tree_calibrated.pkl"   # used for predictions/probabilities
-TREE_MODEL_PATH = "best_decision_tree.pkl"          # original tree, used for importance + plot
+MODEL_PATH = "best_decision_tree_calibrated.pkl"
+TREE_MODEL_PATH = "best_decision_tree.pkl"
 ENCODER_PATH = "onehot_encoder.pkl"
 TREE_IMAGE_PATH = "decision_tree_view.png"
-DATA_PATH = "LoanDataset - LoansDatasest.csv"       # optional, only used for the loan-vs-income chart
+DATA_PATH = "LoanDataset - LoansDatasest.csv"
 
-# Order matters — this is the exact column order used to build X_train_final
 NUM_COLS = [
     "customer_age", "customer_income", "employment_duration",
     "loan_grade", "loan_amnt", "loan_int_rate", "term_years", "cred_hist_length",
 ]
 CAT_COLS = ["home_ownership", "loan_intent", "historical_default"]
-
 GRADE_MAP = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5}
 
-# Update these to match your final classification_report before publishing
 MODEL_METRICS = {
-    "accuracy": 0.965,
-    "precision": 0.96,
-    "recall": 0.87,
-    "f1": 0.91,
-    "train_size": 25952,
-    "test_size": 6489,
+    "accuracy": 0.965, "precision": 0.96, "recall": 0.87, "f1": 0.91,
+    "train_size": 25952, "test_size": 6489,
 }
 
-# ----------------------------------------------------------------------------
-# PAGE CONFIG + STYLE — clean light fintech theme
-# ----------------------------------------------------------------------------
-st.set_page_config(
-    page_title="Loan Risk Intelligence",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# Neon palette
+NEON_CYAN = "#00f5d4"
+NEON_PINK = "#ff2d95"
+NEON_PURPLE = "#9b5de5"
+NEON_YELLOW = "#f9f871"
+NEON_ORANGE = "#ff9f1c"
+NEON_RED = "#ff3860"
+BG_DARK = "#0b0e1a"
+BG_CARD = "#131829"
+GRID = "rgba(255,255,255,0.06)"
+TEXT_MAIN = "#eaf2ff"
+TEXT_DIM = "#8a93a8"
 
-st.markdown("""
+# ----------------------------------------------------------------------------
+# PAGE CONFIG + STYLE
+# ----------------------------------------------------------------------------
+st.set_page_config(page_title="Loan Risk Intelligence — Neon", layout="wide", initial_sidebar_state="expanded")
+
+st.markdown(f"""
 <style>
-    #MainMenu, footer, header {visibility: hidden;}
-    .stApp { background-color: #f6f8fa; }
-    html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
+    #MainMenu, footer, header {{visibility: hidden;}}
+    .stApp {{
+        background:
+            radial-gradient(circle at 15% 0%, rgba(0,245,212,0.10), transparent 40%),
+            radial-gradient(circle at 85% 10%, rgba(255,45,149,0.10), transparent 40%),
+            {BG_DARK};
+    }}
+    html, body, [class*="css"] {{ font-family: 'Inter','Segoe UI',sans-serif; color: {TEXT_MAIN}; }}
 
-    .app-header {
-        padding: 1.5rem 2rem;
-        background: linear-gradient(120deg, #0f9d78 0%, #0b7d8c 100%);
-        border-radius: 16px;
+    .app-header {{
+        padding: 1.6rem 2rem;
+        background: linear-gradient(120deg, rgba(0,245,212,0.15), rgba(155,93,229,0.15));
+        border: 1px solid rgba(0,245,212,0.35);
+        border-radius: 18px;
         margin-bottom: 1.6rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        box-shadow: 0 8px 24px rgba(15, 157, 120, 0.18);
-    }
-    .app-title { font-size: 1.8rem; font-weight: 800; color: #ffffff; margin: 0; letter-spacing: -0.02em; }
-    .app-subtitle { font-size: 0.95rem; color: #e3fbf3; margin-top: 0.2rem; }
-    .status-pill {
-        display: flex; align-items: center; gap: 0.45rem;
-        background: rgba(255,255,255,0.15);
-        padding: 0.45rem 1rem; border-radius: 999px;
-        font-size: 0.82rem; color: #ffffff; font-weight: 600;
-        border: 1px solid rgba(255,255,255,0.3);
-    }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #baffc9; box-shadow: 0 0 8px #baffc9; }
+        display: flex; justify-content: space-between; align-items: center;
+        box-shadow: 0 0 30px rgba(0,245,212,0.12);
+    }}
+    .app-title {{
+        font-size: 2rem; font-weight: 900; margin: 0; letter-spacing: -0.02em;
+        background: linear-gradient(90deg, {NEON_CYAN}, {NEON_PINK});
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }}
+    .app-subtitle {{ font-size: 0.95rem; color: {TEXT_DIM}; margin-top: 0.25rem; }}
+    .status-pill {{
+        display: flex; align-items: center; gap: 0.5rem;
+        background: rgba(255,255,255,0.04); padding: 0.5rem 1.1rem; border-radius: 999px;
+        font-size: 0.82rem; font-weight: 700; border: 1px solid rgba(0,245,212,0.4); color: {NEON_CYAN};
+    }}
+    .status-dot {{ width: 9px; height: 9px; border-radius: 50%; background: {NEON_CYAN}; box-shadow: 0 0 10px {NEON_CYAN}; }}
 
-    .card {
-        background: #ffffff; border: 1px solid #e6ebf0; border-radius: 16px;
+    .card {{
+        background: {BG_CARD}; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
         padding: 1.4rem 1.6rem; margin-bottom: 1rem;
-        box-shadow: 0 2px 10px rgba(20, 30, 40, 0.04);
-    }
-    .kpi-card {
-        background: #ffffff; border: 1px solid #e6ebf0; border-radius: 14px;
-        padding: 1rem 1.1rem; text-align: left;
-        box-shadow: 0 2px 8px rgba(20, 30, 40, 0.03);
-    }
-    .kpi-label { font-size: 0.72rem; color: #7a8794; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; }
-    .kpi-value { font-size: 1.3rem; font-weight: 800; color: #16232e; }
+        box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    }}
+    .kpi-card {{
+        background: {BG_CARD}; border: 1px solid rgba(0,245,212,0.18); border-radius: 14px;
+        padding: 1rem 1.1rem; text-align: left; transition: 0.2s;
+    }}
+    .kpi-card:hover {{ border-color: rgba(0,245,212,0.5); box-shadow: 0 0 16px rgba(0,245,212,0.15); }}
+    .kpi-label {{ font-size: 0.7rem; color: {TEXT_DIM}; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem; }}
+    .kpi-value {{ font-size: 1.25rem; font-weight: 800; color: {TEXT_MAIN}; }}
 
-    .result-card-safe {
-        background: #eafbf3; border: 1px solid #a9e8cb; border-radius: 18px;
-        padding: 2.2rem; text-align: center;
-        box-shadow: 0 4px 18px rgba(15, 157, 120, 0.10);
-    }
-    .result-card-risk {
-        background: #fdecec; border: 1px solid #f3b8b8; border-radius: 18px;
-        padding: 2.2rem; text-align: center;
-        box-shadow: 0 4px 18px rgba(214, 60, 60, 0.10);
-    }
-    .result-label-safe { color: #0f9d78; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-    .result-label-risk { color: #d63c3c; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-    .result-status { font-size: 2.2rem; font-weight: 800; color: #16232e; margin: 0.5rem 0; }
-    .result-prob { color: #4a5a68; font-size: 1.02rem; }
+    .result-card-safe {{
+        background: linear-gradient(135deg, rgba(0,245,212,0.12), rgba(0,245,212,0.02));
+        border: 1px solid {NEON_CYAN}; border-radius: 20px; padding: 2.2rem; text-align: center;
+        box-shadow: 0 0 40px rgba(0,245,212,0.18);
+    }}
+    .result-card-risk {{
+        background: linear-gradient(135deg, rgba(255,56,96,0.15), rgba(255,56,96,0.02));
+        border: 1px solid {NEON_RED}; border-radius: 20px; padding: 2.2rem; text-align: center;
+        box-shadow: 0 0 40px rgba(255,56,96,0.18);
+    }}
+    .result-label-safe {{ color: {NEON_CYAN}; font-size: 0.95rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }}
+    .result-label-risk {{ color: {NEON_RED}; font-size: 0.95rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }}
+    .result-status {{ font-size: 2.4rem; font-weight: 900; color: {TEXT_MAIN}; margin: 0.5rem 0; }}
+    .result-prob {{ color: {TEXT_DIM}; font-size: 1.02rem; }}
 
-    section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e6ebf0; }
-    section[data-testid="stSidebar"] .stMarkdown h3 { color: #16232e; }
+    section[data-testid="stSidebar"] {{ background-color: #0d1120; border-right: 1px solid rgba(0,245,212,0.15); }}
+    section[data-testid="stSidebar"] .stMarkdown h3 {{ color: {NEON_CYAN}; }}
+    div[data-testid="stMetricValue"] {{ color: {TEXT_MAIN}; }}
+    div[data-testid="stMetricLabel"] {{ color: {TEXT_DIM}; }}
 
-    div[data-testid="stMetricValue"] { color: #16232e; }
+    .stButton > button {{
+        background: linear-gradient(90deg, {NEON_CYAN}, {NEON_PURPLE}); color: #06121c; border: none;
+        border-radius: 12px; padding: 0.85rem 1.6rem; font-weight: 800; font-size: 1.05rem;
+        box-shadow: 0 0 20px rgba(0,245,212,0.35);
+    }}
+    .stButton > button:hover {{ box-shadow: 0 0 30px rgba(0,245,212,0.55); transform: translateY(-1px); }}
 
-    .stButton > button {
-        background: #0f9d78; color: white; border: none; border-radius: 12px;
-        padding: 0.8rem 1.6rem; font-weight: 700; font-size: 1.02rem;
-        box-shadow: 0 4px 14px rgba(15, 157, 120, 0.25);
-    }
-    .stButton > button:hover { background: #0c8064; }
-
-    .section-title { font-size: 1.2rem; font-weight: 800; color: #16232e; margin: 1.8rem 0 0.9rem 0; }
+    .section-title {{
+        font-size: 1.15rem; font-weight: 800; margin: 1.8rem 0 0.9rem 0; color: {TEXT_MAIN};
+        border-left: 3px solid {NEON_CYAN}; padding-left: 0.7rem;
+    }}
+    hr {{ border-color: rgba(255,255,255,0.08); }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -171,7 +184,6 @@ def predict_risk(input_df: pd.DataFrame, model, encoder):
     num_part = input_df[NUM_COLS].to_numpy()
     cat_part = encoder.transform(input_df[CAT_COLS])
     X_final = hstack([num_part, cat_part])
-
     prediction = model.predict(X_final)[0]
     proba = model.predict_proba(X_final)[0]
     classes = list(model.classes_)
@@ -183,28 +195,35 @@ def predict_risk(input_df: pd.DataFrame, model, encoder):
 def calculate_risk_score(default_proba: float):
     score = round(default_proba * 100)
     if score <= 30:
-        level = "Low Risk"
+        level, color = "Low Risk", NEON_CYAN
     elif score <= 60:
-        level = "Moderate Risk"
+        level, color = "Moderate Risk", NEON_YELLOW
     elif score <= 80:
-        level = "High Risk"
+        level, color = "High Risk", NEON_ORANGE
     else:
-        level = "Very High Risk"
-    return score, level
+        level, color = "Very High Risk", NEON_RED
+    return score, level, color
 
 
-def calculate_financial_metrics(income, loan_amnt, loan_int_rate, term_years):
-    loan_to_income = loan_amnt / income if income > 0 else np.nan
+def amortization_schedule(loan_amnt, loan_int_rate, term_years):
     monthly_rate = (loan_int_rate / 100) / 12
-    n_payments = max(term_years * 12, 1)
+    n = max(term_years * 12, 1)
     if monthly_rate > 0:
-        monthly_payment = (
-            loan_amnt * (monthly_rate * (1 + monthly_rate) ** n_payments)
-            / ((1 + monthly_rate) ** n_payments - 1)
-        )
+        payment = loan_amnt * (monthly_rate * (1 + monthly_rate) ** n) / ((1 + monthly_rate) ** n - 1)
     else:
-        monthly_payment = loan_amnt / n_payments
-    return loan_to_income, monthly_payment
+        payment = loan_amnt / n
+    balance = loan_amnt
+    balances, principal_paid, interest_paid = [], [], []
+    cum_principal = 0
+    for _ in range(int(n)):
+        interest = balance * monthly_rate
+        principal = payment - interest
+        balance = max(balance - principal, 0)
+        cum_principal += principal
+        balances.append(balance)
+        principal_paid.append(cum_principal)
+        interest_paid.append(payment * len(balances) - cum_principal)
+    return payment, balances, principal_paid, interest_paid
 
 
 # ----------------------------------------------------------------------------
@@ -212,15 +231,15 @@ def calculate_financial_metrics(income, loan_amnt, loan_int_rate, term_years):
 # ----------------------------------------------------------------------------
 def display_header(model_ok: bool):
     status_text = "Model Online" if model_ok else "Model Unavailable"
-    dot_color = "#baffc9" if model_ok else "#ffb3b3"
+    dot_color = NEON_CYAN if model_ok else NEON_RED
     st.markdown(f"""
     <div class="app-header">
         <div>
-            <p class="app-title">Loan Risk Intelligence</p>
-            <p class="app-subtitle">AI-powered loan default risk assessment</p>
+            <p class="app-title">⚡ Loan Risk Intelligence</p>
+            <p class="app-subtitle">AI-powered loan default risk assessment — neon edition</p>
         </div>
         <div class="status-pill">
-            <span class="status-dot" style="background:{dot_color}; box-shadow:0 0 8px {dot_color};"></span>
+            <span class="status-dot" style="background:{dot_color}; box-shadow:0 0 10px {dot_color};"></span>
             {status_text}
         </div>
     </div>
@@ -232,50 +251,43 @@ def display_prediction(prediction, default_proba, risk_score, risk_level):
     card_class = "result-card-risk" if is_default else "result-card-safe"
     label_class = "result-label-risk" if is_default else "result-label-safe"
     label_text = "HIGHER DEFAULT RISK" if is_default else "LOWER DEFAULT RISK"
-
     st.markdown(f"""
     <div class="{card_class}">
         <div class="{label_class}">{label_text}</div>
         <div class="result-status">Predicted Status: {prediction}</div>
-        <div class="result-prob">Default Probability: {default_proba*100:.1f}%  ·  Risk Score: {risk_score}/100 ({risk_level})</div>
+        <div class="result-prob">Default Probability: {default_proba*100:.1f}% &nbsp;·&nbsp; Risk Score: {risk_score}/100 ({risk_level})</div>
     </div>
     """, unsafe_allow_html=True)
 
 
-def display_risk_gauge(risk_score: int):
-    if risk_score <= 30:
-        bar_color = "#0f9d78"
-    elif risk_score <= 60:
-        bar_color = "#e0a530"
-    elif risk_score <= 80:
-        bar_color = "#e0722f"
-    else:
-        bar_color = "#d63c3c"
+def neon_layout(fig, height=300):
+    fig.update_layout(
+        paper_bgcolor=BG_CARD, plot_bgcolor=BG_CARD,
+        font={"color": TEXT_MAIN, "family": "Inter"},
+        height=height, margin=dict(t=30, b=20, l=20, r=20),
+    )
+    return fig
 
+
+def display_risk_gauge(risk_score: int, bar_color: str):
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=risk_score,
-        number={"suffix": " / 100", "font": {"color": "#16232e", "size": 40}},
+        number={"suffix": " / 100", "font": {"color": TEXT_MAIN, "size": 42}},
         gauge={
-            "axis": {"range": [0, 100], "tickcolor": "#7a8794"},
+            "axis": {"range": [0, 100], "tickcolor": TEXT_DIM},
             "bar": {"color": bar_color, "thickness": 0.28},
-            "bgcolor": "#ffffff",
+            "bgcolor": BG_CARD,
             "borderwidth": 0,
             "steps": [
-                {"range": [0, 30], "color": "#dff5ea"},
-                {"range": [30, 60], "color": "#fbf1d9"},
-                {"range": [60, 80], "color": "#fbe4d6"},
-                {"range": [80, 100], "color": "#fbdada"},
+                {"range": [0, 30], "color": "rgba(0,245,212,0.12)"},
+                {"range": [30, 60], "color": "rgba(249,248,113,0.10)"},
+                {"range": [60, 80], "color": "rgba(255,159,28,0.12)"},
+                {"range": [80, 100], "color": "rgba(255,56,96,0.14)"},
             ],
         },
     ))
-    fig.update_layout(
-        paper_bgcolor="#ffffff",
-        font={"color": "#16232e"},
-        height=260,
-        margin=dict(t=30, b=10, l=20, r=20),
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(neon_layout(fig, 270), use_container_width=True)
 
 
 def display_probability_chart(default_proba: float):
@@ -284,54 +296,60 @@ def display_probability_chart(default_proba: float):
         x=[default_proba * 100, no_default_proba * 100],
         y=["Default", "No Default"],
         orientation="h",
-        marker=dict(color=["#d63c3c", "#0f9d78"]),
+        marker=dict(color=[NEON_RED, NEON_CYAN], line=dict(width=0)),
         text=[f"{default_proba*100:.1f}%", f"{no_default_proba*100:.1f}%"],
         textposition="auto",
     ))
     fig.update_layout(
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
-        font={"color": "#16232e"},
-        height=220,
-        margin=dict(t=20, b=20, l=10, r=10),
-        xaxis=dict(range=[0, 100], showgrid=False, title="Probability (%)"),
+        xaxis=dict(range=[0, 100], showgrid=True, gridcolor=GRID, title="Probability (%)"),
         yaxis=dict(showgrid=False),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(neon_layout(fig, 270), use_container_width=True)
 
 
 def display_kpi_cards(raw: dict):
     kpis = [
-        ("Age", f"{raw['age']} yrs"),
-        ("Income", f"£{raw['income']:,.0f}"),
-        ("Loan Amount", f"£{raw['loan_amnt']:,.0f}"),
-        ("Interest Rate", f"{raw['loan_int_rate']:.2f}%"),
-        ("Loan Term", f"{raw['term_years']} yrs"),
-        ("Credit History", f"{raw['cred_hist_length']} yrs"),
+        ("Age", f"{raw['age']} yrs"), ("Income", f"£{raw['income']:,.0f}"),
+        ("Loan Amount", f"£{raw['loan_amnt']:,.0f}"), ("Interest Rate", f"{raw['loan_int_rate']:.2f}%"),
+        ("Loan Term", f"{raw['term_years']} yrs"), ("Credit History", f"{raw['cred_hist_length']} yrs"),
         ("Employment", f"{raw['employment_duration']} yrs"),
     ]
     cols = st.columns(len(kpis))
     for col, (label, value) in zip(cols, kpis):
         with col:
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-label">{label}</div>
-                <div class="kpi-value">{value}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div></div>', unsafe_allow_html=True)
 
 
-def display_financial_overview(raw: dict):
-    loan_to_income, monthly_payment = calculate_financial_metrics(
-        raw["income"], raw["loan_amnt"], raw["loan_int_rate"], raw["term_years"]
+def display_amortization_chart(raw: dict):
+    payment, balances, principal_paid, interest_paid = amortization_schedule(
+        raw["loan_amnt"], raw["loan_int_rate"], raw["term_years"]
     )
+    months = list(range(1, len(balances) + 1))
+
     c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Loan-to-Income Ratio", f"{loan_to_income:.2f}")
-    with c2:
-        st.metric("Est. Monthly Payment", f"£{monthly_payment:,.0f}")
-    with c3:
-        st.metric("Total Repayment (est.)", f"£{monthly_payment * raw['term_years'] * 12:,.0f}")
+    c1.metric("Est. Monthly Payment", f"£{payment:,.0f}")
+    c2.metric("Loan-to-Income Ratio", f"{(raw['loan_amnt']/raw['income']) if raw['income'] else 0:.2f}")
+    c3.metric("Total Repayment (est.)", f"£{payment * len(months):,.0f}")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=months, y=balances, mode="lines", name="Remaining Balance",
+        line=dict(color=NEON_CYAN, width=3), fill="tozeroy", fillcolor="rgba(0,245,212,0.08)",
+    ))
+    fig.add_trace(go.Scatter(
+        x=months, y=principal_paid, mode="lines", name="Principal Paid",
+        line=dict(color=NEON_PURPLE, width=3),
+    ))
+    fig.add_trace(go.Scatter(
+        x=months, y=interest_paid, mode="lines", name="Interest Paid",
+        line=dict(color=NEON_PINK, width=3, dash="dot"),
+    ))
+    fig.update_layout(
+        xaxis=dict(title="Month", showgrid=True, gridcolor=GRID),
+        yaxis=dict(title="£", showgrid=True, gridcolor=GRID),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor="rgba(0,0,0,0)"),
+    )
+    st.plotly_chart(neon_layout(fig, 400), use_container_width=True)
 
 
 def display_feature_importance(tree_model, encoder):
@@ -341,67 +359,96 @@ def display_feature_importance(tree_model, encoder):
     try:
         feature_names = list(NUM_COLS) + list(encoder.get_feature_names_out(CAT_COLS))
         importances = tree_model.feature_importances_
-        feat_imp = pd.DataFrame({
-            "feature": feature_names,
-            "importance": importances,
-        }).sort_values("importance", ascending=False).head(10)
+        feat_imp = pd.DataFrame({"feature": feature_names, "importance": importances}) \
+            .sort_values("importance", ascending=False).head(10)
 
-        fig = px.bar(
-            feat_imp.sort_values("importance"),
-            x="importance", y="feature", orientation="h",
-        )
-        fig.update_traces(marker_color="#0f9d78")
+        fig = px.bar(feat_imp.sort_values("importance"), x="importance", y="feature", orientation="h")
+        fig.update_traces(marker_color=NEON_CYAN, marker_line_width=0)
         fig.update_layout(
-            paper_bgcolor="#ffffff",
-            plot_bgcolor="#ffffff",
-            font={"color": "#16232e"},
-            height=380,
-            margin=dict(t=20, b=20, l=10, r=10),
-            xaxis=dict(showgrid=False, title="Importance"),
+            xaxis=dict(showgrid=True, gridcolor=GRID, title="Importance"),
             yaxis=dict(showgrid=False, title=""),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(neon_layout(fig, 400), use_container_width=True)
     except Exception:
         st.info("Feature importance could not be displayed.")
 
 
-def display_loan_vs_income(raw: dict):
-    df = load_reference_data()
+def display_profile_radar(raw: dict, df: pd.DataFrame):
+    """Radar comparing this applicant's normalized profile vs the dataset average."""
+    if df is None:
+        return
+    try:
+        cols_map = {
+            "customer_age": raw["age"], "customer_income": raw["income"],
+            "loan_amnt": raw["loan_amnt"], "loan_int_rate": raw["loan_int_rate"],
+            "cred_hist_length": raw["cred_hist_length"], "employment_duration": raw["employment_duration"],
+        }
+        labels, applicant_vals, avg_vals = [], [], []
+        for col, val in cols_map.items():
+            if col not in df.columns:
+                continue
+            series = pd.to_numeric(df[col].astype(str).str.replace(",", "").str.replace("£", ""), errors="coerce").dropna()
+            if series.empty or series.max() == series.min():
+                continue
+            norm_applicant = (val - series.min()) / (series.max() - series.min())
+            norm_avg = (series.mean() - series.min()) / (series.max() - series.min())
+            labels.append(col.replace("_", " ").title())
+            applicant_vals.append(max(0, min(1, norm_applicant)) * 100)
+            avg_vals.append(max(0, min(1, norm_avg)) * 100)
+
+        if not labels:
+            return
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatterpolar(
+            r=applicant_vals + [applicant_vals[0]], theta=labels + [labels[0]],
+            fill="toself", name="This Applicant",
+            line=dict(color=NEON_CYAN, width=2), fillcolor="rgba(0,245,212,0.18)",
+        ))
+        fig.add_trace(go.Scatterpolar(
+            r=avg_vals + [avg_vals[0]], theta=labels + [labels[0]],
+            fill="toself", name="Dataset Average",
+            line=dict(color=NEON_PINK, width=2), fillcolor="rgba(255,45,149,0.10)",
+        ))
+        fig.update_layout(
+            polar=dict(
+                bgcolor=BG_CARD,
+                radialaxis=dict(visible=True, range=[0, 100], gridcolor=GRID, color=TEXT_DIM),
+                angularaxis=dict(gridcolor=GRID, color=TEXT_MAIN),
+            ),
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1, bgcolor="rgba(0,0,0,0)"),
+        )
+        st.markdown('<div class="section-title">Applicant Profile vs Average</div>', unsafe_allow_html=True)
+        st.plotly_chart(neon_layout(fig, 420), use_container_width=True)
+    except Exception:
+        pass
+
+
+def display_loan_vs_income(raw: dict, df: pd.DataFrame):
     if df is None or "customer_income" not in df.columns or "loan_amnt" not in df.columns:
         return
     try:
         sample = df.copy()
-        sample["customer_income"] = pd.to_numeric(
-            sample["customer_income"].astype(str).str.replace(",", ""), errors="coerce"
-        )
-        sample["loan_amnt"] = pd.to_numeric(
-            sample["loan_amnt"].astype(str).str.replace("£", "").str.replace(",", ""),
-            errors="coerce",
-        )
+        sample["customer_income"] = pd.to_numeric(sample["customer_income"].astype(str).str.replace(",", ""), errors="coerce")
+        sample["loan_amnt"] = pd.to_numeric(sample["loan_amnt"].astype(str).str.replace("£", "").str.replace(",", ""), errors="coerce")
         sample = sample.dropna(subset=["customer_income", "loan_amnt"])
         sample = sample[sample["customer_income"] < sample["customer_income"].quantile(0.98)]
 
-        fig = px.scatter(
-            sample, x="customer_income", y="loan_amnt",
-            opacity=0.3, color_discrete_sequence=["#0b7d8c"],
-        )
+        fig = px.scatter(sample, x="customer_income", y="loan_amnt", opacity=0.35,
+                          color_discrete_sequence=[NEON_PURPLE])
         fig.add_trace(go.Scatter(
-            x=[raw["income"]], y=[raw["loan_amnt"]],
-            mode="markers", marker=dict(color="#d63c3c", size=16, symbol="star"),
+            x=[raw["income"]], y=[raw["loan_amnt"]], mode="markers",
+            marker=dict(color=NEON_RED, size=18, symbol="star", line=dict(color=NEON_YELLOW, width=1)),
             name="This customer",
         ))
         fig.update_layout(
-            paper_bgcolor="#ffffff",
-            plot_bgcolor="#ffffff",
-            font={"color": "#16232e"},
-            height=380,
-            margin=dict(t=20, b=20, l=10, r=10),
-            xaxis=dict(title="Customer Income (£)", showgrid=False),
-            yaxis=dict(title="Loan Amount (£)", showgrid=False),
+            xaxis=dict(title="Customer Income (£)", showgrid=True, gridcolor=GRID),
+            yaxis=dict(title="Loan Amount (£)", showgrid=True, gridcolor=GRID),
             showlegend=True,
         )
-        st.markdown('<div class="section-title">Loan vs Income</div>', unsafe_allow_html=True)
-        st.plotly_chart(fig, use_container_width=True)
+        st.markdown('<div class="section-title">Loan vs Income (Portfolio Context)</div>', unsafe_allow_html=True)
+        st.plotly_chart(neon_layout(fig, 400), use_container_width=True)
     except Exception:
         pass
 
@@ -437,62 +484,44 @@ def main():
     display_header(model_ok=model is not None)
 
     if model is None or encoder is None:
-        st.error(
-            "Model files could not be loaded. Make sure "
-            f"`{MODEL_PATH}` and `{ENCODER_PATH}` are in the app directory."
-        )
+        st.error(f"Model files could not be loaded. Make sure `{MODEL_PATH}` and `{ENCODER_PATH}` are in the app directory.")
         st.stop()
 
-    # ---------------- Sidebar — all typeable number inputs ----------------
-    st.sidebar.markdown("### Customer Information")
-    age = st.sidebar.number_input("Customer Age", min_value=18, max_value=100, value=30, step=1)
-    income = st.sidebar.number_input("Annual Income (£)", min_value=1000, value=50000, step=1000)
+    # ---------------- Sidebar — every field is a chooser (slider/select/radio) ----------------
+    st.sidebar.markdown("### 👤 Customer Information")
+    age = st.sidebar.slider("Customer Age", min_value=18, max_value=100, value=30, step=1)
+    income = st.sidebar.slider("Annual Income (£)", min_value=1000, max_value=300000, value=50000, step=1000)
     home_ownership = st.sidebar.selectbox("Home Ownership", ["RENT", "OWN", "MORTGAGE", "OTHER"])
-    employment_duration = st.sidebar.number_input("Employment Duration (years)", min_value=0, max_value=45, value=5, step=1)
+    employment_duration = st.sidebar.slider("Employment Duration (years)", min_value=0, max_value=45, value=5, step=1)
     historical_default_choice = st.sidebar.radio(
-        "Historical Default",
-        ["No previous default", "Previous default", "Not reported"],
-        index=2,
+        "Historical Default", ["No previous default", "Previous default", "Not reported"], index=2,
     )
-    historical_default_map = {
-        "No previous default": "N",
-        "Previous default": "Y",
-        "Not reported": "Unknown",
-    }
-    cred_hist_length = st.sidebar.number_input("Credit History Length (years)", min_value=1, max_value=30, value=4, step=1)
+    historical_default_map = {"No previous default": "N", "Previous default": "Y", "Not reported": "Unknown"}
+    cred_hist_length = st.sidebar.slider("Credit History Length (years)", min_value=1, max_value=30, value=4, step=1)
 
-    st.sidebar.markdown("### Loan Information")
-    loan_amnt = st.sidebar.number_input("Loan Amount (£)", min_value=500, value=10000, step=500)
-    loan_int_rate = st.sidebar.number_input("Interest Rate (%)", min_value=5.0, max_value=25.0, value=11.0, step=0.1, format="%.2f")
-    term_years = st.sidebar.number_input("Loan Term (years)", min_value=1, max_value=10, value=4, step=1)
+    st.sidebar.markdown("### 💳 Loan Information")
+    loan_amnt = st.sidebar.slider("Loan Amount (£)", min_value=500, max_value=100000, value=10000, step=500)
+    loan_int_rate = st.sidebar.slider("Interest Rate (%)", min_value=5.0, max_value=25.0, value=11.0, step=0.1, format="%.1f")
+    term_years = st.sidebar.slider("Loan Term (years)", min_value=1, max_value=10, value=4, step=1)
     loan_intent = st.sidebar.selectbox(
-        "Loan Intent",
-        ["PERSONAL", "EDUCATION", "MEDICAL", "VENTURE", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"],
+        "Loan Intent", ["PERSONAL", "EDUCATION", "MEDICAL", "VENTURE", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"],
     )
-    loan_grade = st.sidebar.selectbox("Loan Grade", ["A", "B", "C", "D", "E"], index=1)
+    loan_grade = st.sidebar.select_slider("Loan Grade", options=["A", "B", "C", "D", "E"], value="B")
 
     raw_input = {
-        "age": age,
-        "income": income,
-        "home_ownership": home_ownership,
-        "employment_duration": employment_duration,
-        "historical_default": historical_default_map[historical_default_choice],
-        "cred_hist_length": cred_hist_length,
-        "loan_amnt": loan_amnt,
-        "loan_int_rate": loan_int_rate,
-        "term_years": term_years,
-        "loan_intent": loan_intent,
-        "loan_grade": loan_grade,
+        "age": age, "income": income, "home_ownership": home_ownership,
+        "employment_duration": employment_duration, "historical_default": historical_default_map[historical_default_choice],
+        "cred_hist_length": cred_hist_length, "loan_amnt": loan_amnt, "loan_int_rate": loan_int_rate,
+        "term_years": term_years, "loan_intent": loan_intent, "loan_grade": loan_grade,
     }
 
-    # ---------------- Prediction trigger ----------------
-    st.markdown('<div class="section-title">Risk Assessment</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">⚡ Risk Assessment</div>', unsafe_allow_html=True)
     _, center, _ = st.columns([1, 1, 1])
     with center:
         assess_clicked = st.button("Assess Loan Risk", use_container_width=True)
 
     if not assess_clicked:
-        st.info("Enter the customer and loan details on the left, then click **Assess Loan Risk**.")
+        st.info("Set the customer and loan details in the sidebar, then click **Assess Loan Risk**.")
         return
 
     try:
@@ -502,27 +531,29 @@ def main():
         st.error(f"Something went wrong while generating the prediction: {e}")
         return
 
-    risk_score, risk_level = calculate_risk_score(default_proba)
+    risk_score, risk_level, risk_color = calculate_risk_score(default_proba)
+    df_ref = load_reference_data()
 
     display_prediction(prediction, default_proba, risk_score, risk_level)
 
     st.markdown('<div class="section-title">Risk Score</div>', unsafe_allow_html=True)
     g1, g2 = st.columns(2)
     with g1:
-        display_risk_gauge(risk_score)
+        display_risk_gauge(risk_score, risk_color)
     with g2:
         display_probability_chart(default_proba)
 
     st.markdown('<div class="section-title">Customer Profile</div>', unsafe_allow_html=True)
     display_kpi_cards(raw_input)
 
-    st.markdown('<div class="section-title">Financial Overview</div>', unsafe_allow_html=True)
-    display_financial_overview(raw_input)
+    st.markdown('<div class="section-title">Repayment Timeline</div>', unsafe_allow_html=True)
+    display_amortization_chart(raw_input)
 
     st.markdown('<div class="section-title">Why This Prediction?</div>', unsafe_allow_html=True)
     display_feature_importance(tree_model, encoder)
 
-    display_loan_vs_income(raw_input)
+    display_profile_radar(raw_input, df_ref)
+    display_loan_vs_income(raw_input, df_ref)
 
     display_model_info()
     display_tree_explorer()
