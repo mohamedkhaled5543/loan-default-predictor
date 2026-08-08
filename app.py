@@ -1,4 +1,8 @@
-
+"""
+Loan Risk Intelligence — Neon Edition
+Same preprocessing pipeline as loan_decision_tree_classifier.ipynb.
+Only the UI/UX layer has been rebuilt: dark neon theme + richer Plotly visuals.
+"""
 
 import os
 import joblib
@@ -285,6 +289,13 @@ def display_prediction(prediction, default_proba, risk_score, risk_level):
         <div class="result-prob">Default Probability: {default_proba*100:.1f}% &nbsp;·&nbsp; Risk Score: {risk_score}/100 ({risk_level})</div>
     </div>
     """, unsafe_allow_html=True)
+
+    if default_proba <= 0.0 or default_proba >= 1.0:
+        st.warning(
+            "This probability came out as a hard 0% or 100% — a sign the loaded model isn't "
+            "calibrated (pure decision-tree leaves do this). Retrain with `CalibratedClassifierCV` "
+            f"and overwrite `{MODEL_PATH}` to get smooth in-between percentages."
+        )
 
 
 def neon_layout(fig, height=300):
