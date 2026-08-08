@@ -1,8 +1,4 @@
-"""
-Loan Risk Intelligence — Neon Edition
-Same preprocessing pipeline as loan_decision_tree_classifier.ipynb.
-Only the UI/UX layer has been rebuilt: dark neon theme + richer Plotly visuals.
-"""
+
 
 import os
 import joblib
@@ -50,70 +46,72 @@ TEXT_DIM = "#8a93a8"
 # ----------------------------------------------------------------------------
 # PAGE CONFIG + STYLE
 # ----------------------------------------------------------------------------
-st.set_page_config(page_title="Loan Risk Intelligence — Neon", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Loan Risk Intelligence — Neon", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown(f"""
 <style>
     #MainMenu, footer, header {{visibility: hidden;}}
     .stApp {{
         background:
-            radial-gradient(circle at 15% 0%, rgba(0,245,212,0.10), transparent 40%),
-            radial-gradient(circle at 85% 10%, rgba(255,45,149,0.10), transparent 40%),
+            radial-gradient(circle at 15% 0%, rgba(0,245,212,0.06), transparent 40%),
+            radial-gradient(circle at 85% 10%, rgba(255,45,149,0.06), transparent 40%),
             {BG_DARK};
     }}
     html, body, [class*="css"] {{ font-family: 'Inter','Segoe UI',sans-serif; color: {TEXT_MAIN}; }}
 
     .app-header {{
-        padding: 1.6rem 2rem;
-        background: linear-gradient(120deg, rgba(0,245,212,0.15), rgba(155,93,229,0.15));
-        border: 1px solid rgba(0,245,212,0.35);
-        border-radius: 18px;
-        margin-bottom: 1.6rem;
+        padding: 1.5rem 2rem;
+        background: linear-gradient(120deg, rgba(0,245,212,0.09), rgba(155,93,229,0.09));
+        border: 1px solid rgba(0,245,212,0.22);
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
         display: flex; justify-content: space-between; align-items: center;
-        box-shadow: 0 0 30px rgba(0,245,212,0.12);
+        box-shadow: 0 0 18px rgba(0,245,212,0.07);
     }}
     .app-title {{
-        font-size: 2rem; font-weight: 900; margin: 0; letter-spacing: -0.02em;
+        font-size: 1.9rem; font-weight: 900; margin: 0; letter-spacing: -0.02em;
         background: linear-gradient(90deg, {NEON_CYAN}, {NEON_PINK});
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }}
-    .app-subtitle {{ font-size: 0.95rem; color: {TEXT_DIM}; margin-top: 0.25rem; }}
+    .app-subtitle {{ font-size: 0.92rem; color: {TEXT_DIM}; margin-top: 0.25rem; }}
     .status-pill {{
         display: flex; align-items: center; gap: 0.5rem;
-        background: rgba(255,255,255,0.04); padding: 0.5rem 1.1rem; border-radius: 999px;
-        font-size: 0.82rem; font-weight: 700; border: 1px solid rgba(0,245,212,0.4); color: {NEON_CYAN};
+        background: rgba(255,255,255,0.03); padding: 0.5rem 1.1rem; border-radius: 999px;
+        font-size: 0.8rem; font-weight: 700; border: 1px solid rgba(0,245,212,0.28); color: {NEON_CYAN};
     }}
-    .status-dot {{ width: 9px; height: 9px; border-radius: 50%; background: {NEON_CYAN}; box-shadow: 0 0 10px {NEON_CYAN}; }}
+    .status-dot {{ width: 8px; height: 8px; border-radius: 50%; background: {NEON_CYAN}; box-shadow: 0 0 6px {NEON_CYAN}; }}
 
     .card {{
-        background: {BG_CARD}; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
+        background: {BG_CARD}; border: 1px solid rgba(255,255,255,0.07); border-radius: 16px;
         padding: 1.4rem 1.6rem; margin-bottom: 1rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
     }}
+    .card-title {{ font-size: 1.05rem; font-weight: 800; color: {TEXT_MAIN}; margin-bottom: 0.9rem; }}
+
     .kpi-card {{
-        background: {BG_CARD}; border: 1px solid rgba(0,245,212,0.18); border-radius: 14px;
+        background: {BG_CARD}; border: 1px solid rgba(0,245,212,0.12); border-radius: 14px;
         padding: 1rem 1.1rem; text-align: left; transition: 0.2s;
     }}
-    .kpi-card:hover {{ border-color: rgba(0,245,212,0.5); box-shadow: 0 0 16px rgba(0,245,212,0.15); }}
+    .kpi-card:hover {{ border-color: rgba(0,245,212,0.35); box-shadow: 0 0 10px rgba(0,245,212,0.10); }}
     .kpi-label {{ font-size: 0.7rem; color: {TEXT_DIM}; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem; }}
     .kpi-value {{ font-size: 1.25rem; font-weight: 800; color: {TEXT_MAIN}; }}
 
     .result-card-safe {{
-        background: linear-gradient(135deg, rgba(0,245,212,0.12), rgba(0,245,212,0.02));
-        border: 1px solid {NEON_CYAN}; border-radius: 20px; padding: 2.2rem; text-align: center;
-        box-shadow: 0 0 40px rgba(0,245,212,0.18);
+        background: linear-gradient(135deg, rgba(0,245,212,0.09), rgba(0,245,212,0.02));
+        border: 1px solid rgba(0,245,212,0.75); border-radius: 20px; padding: 2.1rem; text-align: center;
+        box-shadow: 0 0 26px rgba(0,245,212,0.13);
     }}
     .result-card-risk {{
-        background: linear-gradient(135deg, rgba(255,56,96,0.15), rgba(255,56,96,0.02));
-        border: 1px solid {NEON_RED}; border-radius: 20px; padding: 2.2rem; text-align: center;
-        box-shadow: 0 0 40px rgba(255,56,96,0.18);
+        background: linear-gradient(135deg, rgba(255,56,96,0.11), rgba(255,56,96,0.02));
+        border: 1px solid rgba(255,56,96,0.75); border-radius: 20px; padding: 2.1rem; text-align: center;
+        box-shadow: 0 0 26px rgba(255,56,96,0.13);
     }}
     .result-label-safe {{ color: {NEON_CYAN}; font-size: 0.95rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }}
     .result-label-risk {{ color: {NEON_RED}; font-size: 0.95rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }}
-    .result-status {{ font-size: 2.4rem; font-weight: 900; color: {TEXT_MAIN}; margin: 0.5rem 0; }}
-    .result-prob {{ color: {TEXT_DIM}; font-size: 1.02rem; }}
+    .result-status {{ font-size: 2.3rem; font-weight: 900; color: {TEXT_MAIN}; margin: 0.5rem 0; }}
+    .result-prob {{ color: {TEXT_DIM}; font-size: 1.0rem; }}
 
-    section[data-testid="stSidebar"] {{ background-color: #0d1120; border-right: 1px solid rgba(0,245,212,0.15); }}
+    section[data-testid="stSidebar"] {{ background-color: #0d1120; border-right: 1px solid rgba(0,245,212,0.10); }}
     section[data-testid="stSidebar"] .stMarkdown h3 {{ color: {NEON_CYAN}; }}
     div[data-testid="stMetricValue"] {{ color: {TEXT_MAIN}; }}
     div[data-testid="stMetricLabel"] {{ color: {TEXT_DIM}; }}
@@ -121,15 +119,44 @@ st.markdown(f"""
     .stButton > button {{
         background: linear-gradient(90deg, {NEON_CYAN}, {NEON_PURPLE}); color: #06121c; border: none;
         border-radius: 12px; padding: 0.85rem 1.6rem; font-weight: 800; font-size: 1.05rem;
-        box-shadow: 0 0 20px rgba(0,245,212,0.35);
+        box-shadow: 0 0 14px rgba(0,245,212,0.25);
     }}
-    .stButton > button:hover {{ box-shadow: 0 0 30px rgba(0,245,212,0.55); transform: translateY(-1px); }}
+    .stButton > button:hover {{ box-shadow: 0 0 20px rgba(0,245,212,0.4); transform: translateY(-1px); }}
 
     .section-title {{
         font-size: 1.15rem; font-weight: 800; margin: 1.8rem 0 0.9rem 0; color: {TEXT_MAIN};
         border-left: 3px solid {NEON_CYAN}; padding-left: 0.7rem;
     }}
-    hr {{ border-color: rgba(255,255,255,0.08); }}
+    hr {{ border-color: rgba(255,255,255,0.07); }}
+
+    /* ---- Applicant-details input card (matches reference: label above, stepper input) ---- */
+    .input-card {{
+        background: {BG_CARD}; border: 1px solid rgba(255,255,255,0.07); border-radius: 18px;
+        padding: 1.5rem 1.7rem 0.6rem 1.7rem; margin-bottom: 1.2rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }}
+    .input-card-title {{
+        font-size: 1.25rem; font-weight: 800; color: {TEXT_MAIN}; margin-bottom: 1.1rem;
+    }}
+    .input-card div[data-testid="stNumberInput"] label p {{
+        font-size: 0.82rem; color: {TEXT_DIM}; font-weight: 500;
+    }}
+    .input-card div[data-testid="stNumberInput"] > div > div {{
+        background-color: #171c30; border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+    }}
+    .input-card div[data-testid="stNumberInput"] input {{
+        color: {TEXT_MAIN}; font-weight: 600; font-size: 0.95rem;
+    }}
+    .input-card div[data-testid="stNumberInput"] button {{
+        background-color: #1d2338; border-color: rgba(255,255,255,0.08); color: {TEXT_DIM};
+    }}
+    .input-card div[data-testid="stNumberInput"] button:hover {{
+        background-color: #232a44; color: {NEON_CYAN};
+    }}
+    div[data-testid="stSelectbox"] label p, div[data-testid="stRadio"] label p {{
+        font-size: 0.82rem; color: {TEXT_DIM}; font-weight: 500;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -487,26 +514,50 @@ def main():
         st.error(f"Model files could not be loaded. Make sure `{MODEL_PATH}` and `{ENCODER_PATH}` are in the app directory.")
         st.stop()
 
-    # ---------------- Sidebar — every field is a chooser (slider/select/radio) ----------------
-    st.sidebar.markdown("### 👤 Customer Information")
-    age = st.sidebar.slider("Customer Age", min_value=18, max_value=100, value=30, step=1)
-    income = st.sidebar.slider("Annual Income (£)", min_value=1000, max_value=300000, value=50000, step=1000)
-    home_ownership = st.sidebar.selectbox("Home Ownership", ["RENT", "OWN", "MORTGAGE", "OTHER"])
-    employment_duration = st.sidebar.slider("Employment Duration (years)", min_value=0, max_value=45, value=5, step=1)
-    historical_default_choice = st.sidebar.radio(
-        "Historical Default", ["No previous default", "Previous default", "Not reported"], index=2,
+    # ---------------- Main-page "Applicant details" card — number inputs with -/+ steppers ----------------
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
+    st.markdown('<div class="input-card-title">Applicant details</div>', unsafe_allow_html=True)
+
+    r1c1, r1c2 = st.columns(2)
+    with r1c1:
+        age = st.number_input("Age", min_value=18, max_value=100, value=30, step=1)
+    with r1c2:
+        loan_int_rate = st.number_input("Interest rate (%)", min_value=5.0, max_value=25.0, value=12.0, step=0.5, format="%.2f")
+
+    r2c1, r2c2 = st.columns(2)
+    with r2c1:
+        income = st.number_input("Annual income ($)", min_value=1000, max_value=1000000, value=50000, step=1000)
+    with r2c2:
+        term_years = st.number_input("Term (years)", min_value=1, max_value=10, value=5, step=1)
+
+    r3c1, r3c2 = st.columns(2)
+    with r3c1:
+        employment_duration = st.number_input("Employment duration (yrs)", min_value=0, max_value=45, value=5, step=1)
+    with r3c2:
+        cred_hist_length = st.number_input("Credit history length", min_value=1, max_value=30, value=3, step=1)
+
+    r4c1, r4c2 = st.columns(2)
+    with r4c1:
+        loan_amnt = st.number_input("Loan amount ($)", min_value=500, max_value=500000, value=10000, step=500)
+    with r4c2:
+        loan_grade = st.selectbox("Loan grade", ["A", "B", "C", "D", "E"], index=1)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---------------- Second card — categorical details ----------------
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
+    st.markdown('<div class="input-card-title">Loan &amp; history</div>', unsafe_allow_html=True)
+    r5c1, r5c2 = st.columns(2)
+    with r5c1:
+        home_ownership = st.selectbox("Home ownership", ["RENT", "OWN", "MORTGAGE", "OTHER"])
+    with r5c2:
+        loan_intent = st.selectbox(
+            "Loan intent", ["PERSONAL", "EDUCATION", "MEDICAL", "VENTURE", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"],
+        )
+    historical_default_choice = st.radio(
+        "Historical default", ["No previous default", "Previous default", "Not reported"], index=2, horizontal=True,
     )
     historical_default_map = {"No previous default": "N", "Previous default": "Y", "Not reported": "Unknown"}
-    cred_hist_length = st.sidebar.slider("Credit History Length (years)", min_value=1, max_value=30, value=4, step=1)
-
-    st.sidebar.markdown("### 💳 Loan Information")
-    loan_amnt = st.sidebar.slider("Loan Amount (£)", min_value=500, max_value=100000, value=10000, step=500)
-    loan_int_rate = st.sidebar.slider("Interest Rate (%)", min_value=5.0, max_value=25.0, value=11.0, step=0.1, format="%.1f")
-    term_years = st.sidebar.slider("Loan Term (years)", min_value=1, max_value=10, value=4, step=1)
-    loan_intent = st.sidebar.selectbox(
-        "Loan Intent", ["PERSONAL", "EDUCATION", "MEDICAL", "VENTURE", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"],
-    )
-    loan_grade = st.sidebar.select_slider("Loan Grade", options=["A", "B", "C", "D", "E"], value="B")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     raw_input = {
         "age": age, "income": income, "home_ownership": home_ownership,
